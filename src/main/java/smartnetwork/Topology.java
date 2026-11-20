@@ -21,6 +21,8 @@ final class Topology {
         GITHUB("GitHub", "Репозиторий или сервис GitHub", "github", false, "#e0e7f8"),
         PORT("Port", "Сетевой порт сервиса", "port", false, "#7edbef"),
         UNKNOWN("UNKNOWN", "Протокол связи ещё не выбран", "unknown", true, "#aabfd6"),
+        HTTP("http", "Соединение по HTTP", "http", true, "#65bbff"),
+        HTTPS("https", "Соединение по HTTP с шифрованием TLS", "https", true, "#66dfbf"),
         SSH("ssh", "Соединение SSH", "ssh", true, "#f7c670"),
         WIREGUARD("wireguard", "Туннель WireGuard", "wireguard", true, "#ff8e92"),
         AMNEZIA("amnezia-vpn", "Туннель Amnezia VPN", "amnezia-vpn", true, "#c3a2ff"),

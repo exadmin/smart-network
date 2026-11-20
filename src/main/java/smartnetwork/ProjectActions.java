@@ -7,6 +7,9 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.function.Consumer;
+import javafx.beans.binding.BooleanBinding;
+import javafx.beans.property.ObjectProperty;
+import javafx.beans.property.SimpleObjectProperty;
 import javafx.scene.control.Alert;
 import javafx.scene.control.ButtonBar;
 import javafx.scene.control.ButtonType;
@@ -19,7 +22,7 @@ final class ProjectActions {
     private final NetworkCanvas canvas;
     private final Consumer<String> status;
     private String savedSnapshot;
-    private Path currentFile;
+    private final ObjectProperty<Path> currentFile = new SimpleObjectProperty<>();
 
     ProjectActions(Stage stage, Topology topology, NetworkCanvas canvas, Consumer<String> status) {
         this.stage = stage;
@@ -35,11 +38,23 @@ final class ProjectActions {
         status.accept("Создан новый проект.");
     }
 
+    BooleanBinding noCurrentFile() {
+        return currentFile.isNull();
+    }
+
+    void saveCurrent() {
+        Path path = currentFile.get();
+        if (path == null) return;
+        canvas.commitNameEdit();
+        save(path, ProjectFiles.snapshot(topology));
+    }
+
     boolean saveAs() {
         canvas.commitNameEdit();
+        Path current = currentFile.get();
         FileChooser chooser = fileChooser("Сохранить проект как");
-        chooser.setInitialFileName(currentFile == null ? "project" + ProjectFiles.EXTENSION
-            : currentFile.getFileName().toString());
+        chooser.setInitialFileName(current == null ? "project" + ProjectFiles.EXTENSION
+            : current.getFileName().toString());
         File file = chooser.showSaveDialog(stage);
         if (file == null) return false;
         Path path = file.toPath();
@@ -75,7 +90,8 @@ final class ProjectActions {
             "Сохранить изменения в текущем проекте?", save, discard, ButtonType.CANCEL);
         ButtonType answer = dialog.showAndWait().orElse(ButtonType.CANCEL);
         if (answer == discard) return true;
-        return answer == save && (currentFile == null ? saveAs() : save(currentFile, current));
+        Path path = currentFile.get();
+        return answer == save && (path == null ? saveAs() : save(path, current));
     }
 
     private boolean confirmOverwrite(Path file) {
@@ -87,7 +103,7 @@ final class ProjectActions {
     private boolean save(Path path, String snapshot) {
         try {
             ProjectFiles.save(path, snapshot);
-            currentFile = path.toAbsolutePath();
+            currentFile.set(path.toAbsolutePath());
             savedSnapshot = snapshot;
             status.accept("Проект сохранён · " + path.getFileName());
             return true;
@@ -102,7 +118,7 @@ final class ProjectActions {
         topology.roots.addAll(restored.roots);
         topology.links.clear();
         topology.links.addAll(restored.links);
-        currentFile = path == null ? null : path.toAbsolutePath();
+        currentFile.set(path == null ? null : path.toAbsolutePath());
         savedSnapshot = ProjectFiles.snapshot(topology);
         canvas.resetProjectView();
     }
@@ -112,8 +128,9 @@ final class ProjectActions {
         chooser.setTitle(title);
         chooser.getExtensionFilters().add(new FileChooser.ExtensionFilter(
             "Smart Network (*" + ProjectFiles.EXTENSION + ")", "*" + ProjectFiles.EXTENSION));
-        if (currentFile != null && Files.isDirectory(currentFile.getParent())) {
-            chooser.setInitialDirectory(currentFile.getParent().toFile());
+        Path current = currentFile.get();
+        if (current != null && Files.isDirectory(current.getParent())) {
+            chooser.setInitialDirectory(current.getParent().toFile());
         }
         return chooser;
     }

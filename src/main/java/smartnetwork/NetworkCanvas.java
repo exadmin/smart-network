@@ -93,7 +93,7 @@ final class NetworkCanvas extends Pane {
         world.setManaged(false);
         world.getTransforms().add(transform);
         linkArrow.setContent("M -17,-5 H 3 V -11 L 17,0 L 3,11 V 5 H -17 Z");
-        linkArrow.setFill(Color.web("#b7dbff", 0.62));
+        linkArrow.setFill(Color.web("#b7dbff", 0.558));
         linkArrow.setManaged(false);
         linkArrow.setMouseTransparent(true);
         linkArrow.setVisible(false);

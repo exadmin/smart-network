@@ -82,25 +82,36 @@ public final class NetworkEditor extends Application {
         Button sendPreview = new Button();
         configureTool(sendPreview, icons, "send-ai", "Отправить в AI", "Отправить в AI (недоступно)");
         sendPreview.setDisable(true);
-        sendPreview.setMouseTransparent(true);
-        StackPane unavailableTool = new StackPane(sendPreview);
-        unavailableTool.setPickOnBounds(true);
-        Tooltip.install(unavailableTool, sendPreview.getTooltip());
         Button newProject = projectButton(icons, "new-project", "New Project", "Создать новый проект", projects::newProject);
+        Button save = projectButton(icons, "save", "Save", "Сохранить изменения в текущий файл", projects::saveCurrent);
+        save.disableProperty().bind(projects.noCurrentFile());
         Button saveAs = projectButton(icons, "save-as", "Save As", "Сохранить проект в файл", projects::saveAs);
         Button loadFrom = projectButton(icons, "load-from", "Load From", "Загрузить проект из файла", projects::loadFrom);
         ToggleButton snap = new ToggleButton();
         configureTool(snap, icons, "snap-centers", "Прилипание", "Выравнивать центры кругов при перетаскивании");
         snap.setSelected(true);
         snap.selectedProperty().addListener((obs, previous, enabled) -> canvas.setSnapEnabled(enabled));
-        ToolBar tools = new ToolBar(toolDivider(), newProject, saveAs, loadFrom, toolDivider(),
-            showProperties, hideSensitive, snap, unavailableTool, toolDivider());
+        ToolBar tools = new ToolBar(toolDivider(), newProject, toolWithDisabledHint(save), saveAs, loadFrom, toolDivider(),
+            showProperties, hideSensitive, snap, toolWithDisabledHint(sendPreview), toolDivider());
         tools.getStyleClass().add("editor-tools");
         tools.setMinWidth(Region.USE_PREF_SIZE);
         HBox bar = new HBox(10, title, tools, spacer, resetView, new Label("Адрес агента"), endpoint, send);
         bar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         bar.getStyleClass().add("toolbar");
         return bar;
+    }
+
+    private StackPane toolWithDisabledHint(Button button) {
+        StackPane wrapper = new StackPane(button);
+        wrapper.setPickOnBounds(true);
+        button.mouseTransparentProperty().bind(button.disabledProperty());
+        Tooltip unavailable = new Tooltip(button.getTooltip().getText());
+        if (button.isDisabled()) Tooltip.install(wrapper, unavailable);
+        button.disabledProperty().addListener((obs, previous, disabled) -> {
+            if (disabled) Tooltip.install(wrapper, unavailable);
+            else Tooltip.uninstall(wrapper, unavailable);
+        });
+        return wrapper;
     }
 
     private Button projectButton(Icons icons, String icon, String name, String hint, Runnable action) {
