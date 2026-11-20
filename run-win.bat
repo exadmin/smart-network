@@ -5,7 +5,7 @@ set "JAVAFX_HOME=C:\Development\Java\javafx-sdk-25.0.1"
 set "APP_JAR=target\smart-network-1.0.0.jar"
 
 pushd "%~dp0" || exit /b 1
-if not exist "%JAVA_HOME%\bin\java.exe" (
+if not exist "%JAVA_HOME%\bin\javaw.exe" (
     echo JDK not found at "%JAVA_HOME%".
     goto failed
 )
@@ -28,7 +28,7 @@ if not exist "%APP_JAR%" (
     if errorlevel 1 goto failed
 )
 
-"%JAVA_HOME%\bin\javaw.exe" --enable-native-access=javafx.graphics --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls -jar "%APP_JAR%"
+start "" "%JAVA_HOME%\bin\javaw.exe" --enable-native-access=javafx.graphics --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls -jar "%APP_JAR%"
 if errorlevel 1 goto failed
 
 popd

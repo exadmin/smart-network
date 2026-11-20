@@ -30,6 +30,7 @@ import smartnetwork.Topology.Type;
 
 final class NetworkCanvas extends Pane {
     private static final double HANDLE_RADIUS = 6;
+    private static final double SNAP_TOLERANCE = 5;
 
     private enum End { SOURCE, TARGET }
 
@@ -50,6 +51,8 @@ final class NetworkCanvas extends Pane {
     private final Canvas grid = new Canvas();
     private final Group world = new Group();
     private final SVGPath linkArrow = new SVGPath();
+    private final Line verticalGuide = alignmentGuide();
+    private final Line horizontalGuide = alignmentGuide();
     private final Affine transform = new Affine();
     private final List<Edge> edges = new ArrayList<>();
     private final List<NodeBadge> nodeBadges = new ArrayList<>();
@@ -61,6 +64,7 @@ final class NetworkCanvas extends Pane {
     private Point2D panAtPress;
     private Point2D dragDelta = Point2D.ZERO;
     private boolean moved;
+    private boolean snapEnabled = true;
     private Device dragging;
     private Device dropParent;
     private Device linkStart;
@@ -93,7 +97,9 @@ final class NetworkCanvas extends Pane {
         linkArrow.setManaged(false);
         linkArrow.setMouseTransparent(true);
         linkArrow.setVisible(false);
-        getChildren().addAll(grid, world, linkArrow);
+        verticalGuide.endYProperty().bind(heightProperty());
+        horizontalGuide.endXProperty().bind(widthProperty());
+        getChildren().addAll(grid, world, verticalGuide, horizontalGuide, linkArrow);
         Rectangle clip = new Rectangle();
         clip.widthProperty().bind(widthProperty());
         clip.heightProperty().bind(heightProperty());
@@ -177,7 +183,7 @@ final class NetworkCanvas extends Pane {
                 dropParent = newLinkTarget(linkPreview);
                 redraw();
             } else if (dragging != null) {
-                dragDelta = delta.multiply(1 / zoom);
+                updateDeviceDrag(delta);
                 dropParent = deviceAt(toWorld(event.getX(), event.getY()), dragging);
                 redraw();
             }
@@ -204,7 +210,8 @@ final class NetworkCanvas extends Pane {
                         select(link);
                     }
                 } else if (dragging != null && moved) {
-                    Point2D center = dragging.center().add(dragDelta);
+                    Point2D releaseDelta = new Point2D(event.getX(), event.getY()).subtract(pressed);
+                    Point2D center = updateDeviceDrag(releaseDelta);
                     topology.place(dragging, deviceAt(position, dragging), center);
                 }
                 draggedEnd = null;
@@ -214,6 +221,7 @@ final class NetworkCanvas extends Pane {
                 dragging = null;
                 dropParent = null;
                 dragDelta = Point2D.ZERO;
+                hideAlignmentGuides();
                 redraw();
             }
             pressed = null;
@@ -245,6 +253,57 @@ final class NetworkCanvas extends Pane {
             updateHover(before);
             event.consume();
         });
+    }
+
+    private static Line alignmentGuide() {
+        Line guide = new Line();
+        guide.getStyleClass().add("alignment-guide");
+        guide.setManaged(false);
+        guide.setMouseTransparent(true);
+        guide.setVisible(false);
+        return guide;
+    }
+
+    void setSnapEnabled(boolean enabled) {
+        snapEnabled = enabled;
+        if (!enabled) hideAlignmentGuides();
+    }
+
+    private void hideAlignmentGuides() {
+        verticalGuide.setVisible(false);
+        horizontalGuide.setVisible(false);
+    }
+
+    private Point2D updateDeviceDrag(Point2D screenDelta) {
+        Point2D original = dragging.center();
+        Point2D proposed = original.add(screenDelta.multiply(1 / zoom));
+        double x = proposed.getX();
+        double y = proposed.getY();
+        if (snapEnabled) {
+            double bestXDistance = Math.nextUp(SNAP_TOLERANCE);
+            double bestYDistance = Math.nextUp(SNAP_TOLERANCE);
+            for (Device candidate : topology.devices()) {
+                if (dragging.contains(candidate)) continue;
+                Point2D center = candidate.center();
+                double xDistance = Math.abs(center.getX() - proposed.getX()) * zoom;
+                double yDistance = Math.abs(center.getY() - proposed.getY()) * zoom;
+                if (xDistance < bestXDistance) {
+                    bestXDistance = xDistance;
+                    x = center.getX();
+                }
+                if (yDistance < bestYDistance) {
+                    bestYDistance = yDistance;
+                    y = center.getY();
+                }
+            }
+            verticalGuide.setVisible(bestXDistance <= SNAP_TOLERANCE);
+            verticalGuide.setTranslateX(x * zoom + pan.getX());
+            horizontalGuide.setVisible(bestYDistance <= SNAP_TOLERANCE);
+            horizontalGuide.setTranslateY(y * zoom + pan.getY());
+        }
+        Point2D center = new Point2D(x, y);
+        dragDelta = center.subtract(original);
+        return center;
     }
 
     private void updateHover(Point2D position) {

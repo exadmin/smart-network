@@ -89,10 +89,12 @@ public final class NetworkEditor extends Application {
         Button newProject = projectButton(icons, "new-project", "New Project", "Создать новый проект", projects::newProject);
         Button saveAs = projectButton(icons, "save-as", "Save As", "Сохранить проект в файл", projects::saveAs);
         Button loadFrom = projectButton(icons, "load-from", "Load From", "Загрузить проект из файла", projects::loadFrom);
-        Separator groupDivider = toolDivider();
-        groupDivider.getStyleClass().add("tool-group-divider");
-        ToolBar tools = new ToolBar(newProject, toolDivider(), saveAs, toolDivider(), loadFrom,
-            groupDivider, showProperties, toolDivider(), hideSensitive, toolDivider(), unavailableTool);
+        ToggleButton snap = new ToggleButton();
+        configureTool(snap, icons, "snap-centers", "Прилипание", "Выравнивать центры кругов при перетаскивании");
+        snap.setSelected(true);
+        snap.selectedProperty().addListener((obs, previous, enabled) -> canvas.setSnapEnabled(enabled));
+        ToolBar tools = new ToolBar(toolDivider(), newProject, saveAs, loadFrom, toolDivider(),
+            showProperties, hideSensitive, snap, unavailableTool, toolDivider());
         tools.getStyleClass().add("editor-tools");
         tools.setMinWidth(Region.USE_PREF_SIZE);
         HBox bar = new HBox(10, title, tools, spacer, resetView, new Label("Адрес агента"), endpoint, send);
@@ -110,7 +112,7 @@ public final class NetworkEditor extends Application {
 
     private Separator toolDivider() {
         Separator separator = new Separator(Orientation.VERTICAL);
-        separator.getStyleClass().add("tool-divider");
+        separator.getStyleClass().add("tool-group-divider");
         return separator;
     }
 
