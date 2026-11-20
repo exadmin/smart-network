@@ -17,9 +17,11 @@ import javafx.scene.layout.HBox;
 import javafx.scene.layout.Pane;
 import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.scene.shape.Line;
 import javafx.scene.shape.QuadCurve;
 import javafx.scene.shape.Rectangle;
 import javafx.scene.shape.StrokeLineCap;
+import javafx.scene.shape.SVGPath;
 import javafx.scene.transform.Affine;
 import smartnetwork.Topology.Device;
 import smartnetwork.Topology.Item;
@@ -46,6 +48,7 @@ final class NetworkCanvas extends Pane {
     private final Consumer<Item> properties;
     private final Canvas grid = new Canvas();
     private final Group world = new Group();
+    private final SVGPath linkArrow = new SVGPath();
     private final Affine transform = new Affine();
     private final List<Edge> edges = new ArrayList<>();
     private final List<NodeBadge> nodeBadges = new ArrayList<>();
@@ -60,7 +63,8 @@ final class NetworkCanvas extends Pane {
     private Device dragging;
     private Device dropParent;
     private Device linkStart;
-    private Type linkType;
+    private Device hoveredCircle;
+    private Point2D linkPreview;
     private Item selection;
     private End draggedEnd;
     private Point2D endpointPreview;
@@ -81,7 +85,12 @@ final class NetworkCanvas extends Pane {
         world.setMouseTransparent(true);
         world.setManaged(false);
         world.getTransforms().add(transform);
-        getChildren().addAll(grid, world);
+        linkArrow.setContent("M -17,-5 H 3 V -11 L 17,0 L 3,11 V 5 H -17 Z");
+        linkArrow.setFill(Color.web("#b7dbff", 0.62));
+        linkArrow.setManaged(false);
+        linkArrow.setMouseTransparent(true);
+        linkArrow.setVisible(false);
+        getChildren().addAll(grid, world, linkArrow);
         Rectangle clip = new Rectangle();
         clip.widthProperty().bind(widthProperty());
         clip.heightProperty().bind(heightProperty());
@@ -95,8 +104,7 @@ final class NetworkCanvas extends Pane {
         setOnDragOver(event -> {
             if (!event.getDragboard().hasContent(NetworkEditor.PALETTE_TYPE)) return;
             event.acceptTransferModes(TransferMode.COPY);
-            Type type = Type.valueOf((String) event.getDragboard().getContent(NetworkEditor.PALETTE_TYPE));
-            setDropParent(type.link ? null : deviceAt(toWorld(event.getX(), event.getY()), null));
+            setDropParent(deviceAt(toWorld(event.getX(), event.getY()), null));
             event.consume();
         });
         setOnDragExited(event -> setDropParent(null));
@@ -104,20 +112,17 @@ final class NetworkCanvas extends Pane {
             if (!event.getDragboard().hasContent(NetworkEditor.PALETTE_TYPE)) return;
             requestFocus();
             Type type = Type.valueOf((String) event.getDragboard().getContent(NetworkEditor.PALETTE_TYPE));
+            if (type.link) {
+                event.setDropCompleted(false);
+                event.consume();
+                return;
+            }
             Point2D position = toWorld(event.getX(), event.getY());
             Device target = deviceAt(position, null);
             dropParent = null;
-            linkStart = null;
-            linkType = null;
-            if (type.link) {
-                linkType = type;
-                linkStart = target;
-                selection = target;
-            } else {
-                var device = new Device(type, position);
-                topology.place(device, target, position);
-                selection = device;
-            }
+            var device = new Device(type, position);
+            topology.place(device, target, position);
+            selection = device;
             redraw();
             showHint();
             event.setDropCompleted(true);
@@ -132,12 +137,23 @@ final class NetworkCanvas extends Pane {
             pressedButton = event.getButton();
             panAtPress = pan;
             moved = false;
-            if (event.getButton() != MouseButton.PRIMARY || linkType != null) return;
+            if (event.getButton() != MouseButton.PRIMARY) {
+                setHoveredCircle(null);
+                return;
+            }
             Point2D position = toWorld(event.getX(), event.getY());
             draggedEnd = handleAt(position);
             if (draggedEnd != null) return;
+            if (hitsArrow(position)) {
+                linkStart = hoveredCircle;
+                selection = linkStart;
+                setHoveredCircle(null);
+                redraw();
+                return;
+            }
             selection = itemAt(position);
             if (selection instanceof Device device) dragging = device;
+            setHoveredCircle(null);
             redraw();
         });
         setOnMouseDragged(event -> {
@@ -151,6 +167,10 @@ final class NetworkCanvas extends Pane {
             } else if (draggedEnd != null) {
                 endpointPreview = toWorld(event.getX(), event.getY());
                 dropParent = endpointTarget((Link) selection, endpointPreview);
+                redraw();
+            } else if (linkStart != null) {
+                linkPreview = toWorld(event.getX(), event.getY());
+                dropParent = newLinkTarget(linkPreview);
                 redraw();
             } else if (dragging != null) {
                 dragDelta = delta.multiply(1 / zoom);
@@ -172,14 +192,21 @@ final class NetworkCanvas extends Pane {
                         if (draggedEnd == End.SOURCE) link.source = target;
                         else link.target = target;
                     }
-                } else if (linkType != null && !moved) {
-                    chooseEndpoint(deviceAt(position, null));
+                } else if (linkStart != null && moved) {
+                    Device target = newLinkTarget(position);
+                    if (target != null) {
+                        Link link = new Link(Type.UNKNOWN, linkStart, target);
+                        topology.links.add(link);
+                        selection = link;
+                    }
                 } else if (dragging != null && moved) {
                     Point2D center = dragging.center().add(dragDelta);
                     topology.place(dragging, deviceAt(position, dragging), center);
                 }
                 draggedEnd = null;
                 endpointPreview = null;
+                linkStart = null;
+                linkPreview = null;
                 dragging = null;
                 dropParent = null;
                 dragDelta = Point2D.ZERO;
@@ -187,26 +214,67 @@ final class NetworkCanvas extends Pane {
             }
             pressed = null;
             pressedButton = null;
+            updateHover(position);
         });
-        setOnMouseMoved(event -> setCursor(event.getTarget() == this && linkType == null
-            && handleAt(toWorld(event.getX(), event.getY())) != null ? Cursor.HAND : Cursor.DEFAULT));
+        setOnMouseMoved(event -> {
+            if (event.getTarget() == this) updateHover(toWorld(event.getX(), event.getY()));
+            else setHoveredCircle(null);
+        });
+        setOnMouseExited(event -> setHoveredCircle(null));
         setOnMouseClicked(event -> {
             if (event.getTarget() == this && event.getButton() == MouseButton.PRIMARY
-                && event.getClickCount() == 2 && !moved && linkType == null
+                && event.getClickCount() == 2 && !moved
                 && selection == itemAt(toWorld(event.getX(), event.getY())) && editSelectionName()) {
                 event.consume();
             }
         });
         setOnScroll(event -> {
-            if (event.getDeltaY() == 0 || dragging != null || draggedEnd != null) return;
+            if (event.getDeltaY() == 0 || dragging != null || draggedEnd != null || linkStart != null) return;
             Point2D cursor = new Point2D(event.getX(), event.getY());
             Point2D before = toWorld(cursor.getX(), cursor.getY());
             zoom = Math.clamp(zoom * Math.pow(1.0018, event.getDeltaY()), 0.2, 3.5);
             pan = cursor.subtract(before.multiply(zoom));
             updateView();
             if (selection instanceof Link) redraw();
+            updateHover(before);
             event.consume();
         });
+    }
+
+    private void updateHover(Point2D position) {
+        Device device = circleAt(position, null);
+        // The selected circle can expose its arrow even when a child covers its center.
+        if (selection instanceof Device selected && nearArrow(selected, position)) device = selected;
+        setHoveredCircle(device);
+        setCursor(hitsArrow(position) || handleAt(position) != null ? Cursor.HAND : Cursor.DEFAULT);
+    }
+
+    private void setHoveredCircle(Device device) {
+        hoveredCircle = device;
+        positionLinkArrow();
+        if (device == null) setCursor(Cursor.DEFAULT);
+    }
+
+    private void positionLinkArrow() {
+        linkArrow.setVisible(hoveredCircle != null && linkStart == null && nameEditor == null);
+        if (!linkArrow.isVisible()) return;
+        Point2D point = hoveredCircle.center().multiply(zoom).add(pan);
+        linkArrow.setTranslateX(point.getX());
+        linkArrow.setTranslateY(point.getY());
+    }
+
+    private boolean hitsArrow(Point2D position) {
+        return linkArrow.isVisible() && nearArrow(hoveredCircle, position);
+    }
+
+    private boolean nearArrow(Device device, Point2D position) {
+        Point2D offset = position.subtract(device.center()).multiply(zoom);
+        return Math.abs(offset.getX()) <= 18 && Math.abs(offset.getY()) <= 11;
+    }
+
+    private Device newLinkTarget(Point2D position) {
+        Device target = circleAt(position, null);
+        return target == linkStart ? null : target;
     }
 
     boolean editSelectionName() {
@@ -229,6 +297,7 @@ final class NetworkCanvas extends Pane {
             if (!focused) finishNameEdit(item, field);
         });
         nameEditor = field;
+        setHoveredCircle(null);
         getChildren().add(field);
         field.applyCss();
         positionNameEditor();
@@ -256,21 +325,6 @@ final class NetworkCanvas extends Pane {
             width, height);
     }
 
-    private void chooseEndpoint(Device device) {
-        if (device == null || device == linkStart) return;
-        if (linkStart == null) {
-            linkStart = device;
-            selection = device;
-        } else {
-            Link link = new Link(linkType, linkStart, device);
-            topology.links.add(link);
-            selection = link;
-            linkType = null;
-            linkStart = null;
-        }
-        showHint();
-    }
-
     private void showMenu(Item item, double x, double y) {
         if (item == null) return;
         selection = item;
@@ -287,24 +341,20 @@ final class NetworkCanvas extends Pane {
         if (selection == null || pressed != null) return;
         topology.remove(selection);
         selection = null;
-        cancelLink();
+        setHoveredCircle(null);
         redraw();
     }
 
     void cancelLink() {
-        linkType = null;
+        if (linkStart == null) return;
         linkStart = null;
+        linkPreview = null;
+        dropParent = null;
         redraw();
-        showHint();
     }
 
     void showHint() {
-        if (linkType == null) {
-            status.accept("Перетащите элемент из палитры · ПКМ — свойства или панорамирование · Колесо — масштаб");
-        } else {
-            status.accept(linkType.name + " · Выберите " + (linkStart == null ? "начальный" : "конечный")
-                + " элемент · Esc — отмена");
-        }
+        status.accept("Перетащите стрелку из центра круга для связи · ПКМ — свойства или панорамирование · Колесо — масштаб");
     }
 
     void resetView() {
@@ -359,6 +409,10 @@ final class NetworkCanvas extends Pane {
                 return device;
             }
         }
+        return circleAt(position, excluded);
+    }
+
+    private Device circleAt(Point2D position, Device excluded) {
         for (Device device : topology.devices().reversed()) {
             if ((excluded == null || !excluded.contains(device))
                 && displayedCenter(device).distance(position) <= device.radius) return device;
@@ -399,6 +453,7 @@ final class NetworkCanvas extends Pane {
     private void updateView() {
         transform.setToTransform(zoom, 0, pan.getX(), 0, zoom, pan.getY());
         positionNameEditor();
+        positionLinkArrow();
         grid.setWidth(getWidth());
         grid.setHeight(getHeight());
         var graphics = grid.getGraphicsContext2D();
@@ -430,6 +485,15 @@ final class NetworkCanvas extends Pane {
             world.getChildren().add(ring);
         }
         for (Link link : topology.links) addEdge(link);
+        if (linkStart != null && linkPreview != null) {
+            Point2D start = linkStart.center();
+            Point2D end = dropParent == null ? linkPreview : dropParent.center();
+            Line preview = new Line(start.getX(), start.getY(), end.getX(), end.getY());
+            preview.setStroke(Color.web(Type.UNKNOWN.color));
+            preview.setStrokeWidth(2 / zoom);
+            preview.getStrokeDashArray().setAll(6 / zoom, 4 / zoom);
+            world.getChildren().add(preview);
+        }
         for (Edge edge : edges) addBadge(edge.badge(), edge.at(0.5));
         for (Device device : devices) {
             HBox badge = badge(device);

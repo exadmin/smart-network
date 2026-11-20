@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Arrays;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -16,7 +17,9 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DataFormat;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
+import javafx.util.StringConverter;
 import smartnetwork.Topology.Item;
+import smartnetwork.Topology.Link;
 import smartnetwork.Topology.Type;
 
 public final class NetworkEditor extends Application {
@@ -78,7 +81,7 @@ public final class NetworkEditor extends Application {
     private VBox palette(Icons icons) {
         Label title = new Label("Палитра");
         title.getStyleClass().add("panel-title");
-        VBox contents = new VBox(15, category("Элементы", false, icons), category("Связи", true, icons));
+        VBox contents = new VBox(15, category(icons));
         contents.setPadding(new Insets(0, 4, 8, 0));
         ScrollPane scroll = new ScrollPane(contents);
         scroll.setFitToWidth(true);
@@ -90,13 +93,13 @@ public final class NetworkEditor extends Application {
         return sidebar;
     }
 
-    private VBox category(String title, boolean links, Icons icons) {
+    private VBox category(Icons icons) {
         TilePane tiles = new TilePane(8, 10);
         tiles.setPrefTileWidth(116);
         tiles.setPrefColumns(2);
         tiles.setTileAlignment(javafx.geometry.Pos.TOP_CENTER);
         for (Type type : Type.values()) {
-            if (type.link != links) continue;
+            if (type.link) continue;
             StackPane square = new StackPane(icons.create(type));
             square.getStyleClass().add("icon-square");
             Label caption = new Label(type.name);
@@ -117,7 +120,7 @@ public final class NetworkEditor extends Application {
             });
             tiles.getChildren().add(tile);
         }
-        Label heading = new Label(title);
+        Label heading = new Label("Элементы");
         heading.getStyleClass().add("category");
         return new VBox(8, heading, tiles);
     }
@@ -136,9 +139,27 @@ public final class NetworkEditor extends Application {
         description.setWrapText(true);
         description.setPrefRowCount(5);
         Label iconPath = new Label(item.type.icon);
-        dialog.getDialogPane().setContent(new VBox(8,
-            new Label("Имя на схеме"), name, new Label("Описание для AI"), description, iconPath));
+        ChoiceBox<Type> protocol = new ChoiceBox<>();
+        VBox fields = new VBox(8, new Label("Имя на схеме"), name);
+        if (item instanceof Link) {
+            protocol.getItems().setAll(Arrays.stream(Type.values()).filter(type -> type.link).toList());
+            protocol.setConverter(new StringConverter<>() {
+                @Override public String toString(Type type) { return type == null ? "" : type.name; }
+                @Override public Type fromString(String value) { return null; }
+            });
+            protocol.setValue(item.type);
+            protocol.valueProperty().addListener((obs, previous, type) -> {
+                name.setPromptText(type.name);
+                iconPath.setText(type.icon);
+            });
+            Label protocolLabel = new Label("Тип связи");
+            protocolLabel.setLabelFor(protocol);
+            fields.getChildren().addAll(protocolLabel, protocol);
+        }
+        fields.getChildren().addAll(new Label("Описание для AI"), description, iconPath);
+        dialog.getDialogPane().setContent(fields);
         if (dialog.showAndWait().orElse(ButtonType.CANCEL) == save) {
+            if (item instanceof Link) item.type = protocol.getValue();
             item.name = name.getText().strip();
             item.description = description.getText();
             canvas.redraw();
