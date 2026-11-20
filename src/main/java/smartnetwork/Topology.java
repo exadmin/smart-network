@@ -134,9 +134,19 @@ final class Topology {
             for (Device child : parent.children) {
                 radius = Math.max(radius, child.position.magnitude() + child.radius + 39);
             }
+            double growth = radius - parent.radius;
             parent.radius = radius;
+            if (growth > 0) moveSiblingsOutward(parent, growth);
             anchor = parent;
             parent = parent.parent;
+        }
+    }
+
+    private void moveSiblingsOutward(Device expanded, double growth) {
+        for (Device sibling : siblings(expanded.parent)) {
+            if (sibling == expanded) continue;
+            Point2D direction = sibling.position.subtract(expanded.position).normalize();
+            sibling.position = sibling.position.add(direction.multiply(growth));
         }
     }
 
