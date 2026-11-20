@@ -10,23 +10,23 @@ import javafx.geometry.Point2D;
 
 final class Topology {
     enum Type {
-        VPS("VPS сервер", "Виртуальный сервер", "vps", false, "#65bbff"),
-        ROUTER("home router", "Домашний маршрутизатор", "router", false, "#66dfbf"),
-        PC("home pc", "Домашний компьютер", "pc", false, "#8daaff"),
-        WG_SERVER("WireGuard Server", "Сервер WireGuard", "wg-server", false, "#ff8e92"),
-        WG_CLIENT("WireGuard Client", "Клиент WireGuard", "wg-client", false, "#ff8e92"),
-        AMNEZIA_SERVER("Amnezia VPN Server", "Сервер Amnezia VPN", "amnezia-server", false, "#c3a2ff"),
-        AMNEZIA_CLIENT("Amnezia VPN Client", "Клиент Amnezia VPN", "amnezia-client", false, "#c3a2ff"),
-        MIHOMO("Mihomo App", "Приложение Mihomo", "mihomo", false, "#f7c670"),
-        GITHUB("GitHub", "Репозиторий или сервис GitHub", "github", false, "#e0e7f8"),
-        PORT("Port", "Сетевой порт сервиса", "port", false, "#7edbef"),
-        UNKNOWN("UNKNOWN", "Протокол связи ещё не выбран", "unknown", true, "#aabfd6"),
-        HTTP("http", "Соединение по HTTP", "http", true, "#65bbff"),
-        HTTPS("https", "Соединение по HTTP с шифрованием TLS", "https", true, "#66dfbf"),
-        SSH("ssh", "Соединение SSH", "ssh", true, "#f7c670"),
-        WIREGUARD("wireguard", "Туннель WireGuard", "wireguard", true, "#ff8e92"),
-        AMNEZIA("amnezia-vpn", "Туннель Amnezia VPN", "amnezia-vpn", true, "#c3a2ff"),
-        HISTERIA("histeria-vpn", "Туннель Hysteria VPN", "histeria-vpn", true, "#66dfbf");
+        VPS("VPS Server", "Virtual private server", "vps", false, "#65bbff"),
+        ROUTER("Home Router", "Home network router", "router", false, "#66dfbf"),
+        PC("Home PC", "Home computer", "pc", false, "#8daaff"),
+        WG_SERVER("WireGuard Server", "WireGuard server", "wg-server", false, "#ff8e92"),
+        WG_CLIENT("WireGuard Client", "WireGuard client", "wg-client", false, "#ff8e92"),
+        AMNEZIA_SERVER("Amnezia VPN Server", "Amnezia VPN server", "amnezia-server", false, "#c3a2ff"),
+        AMNEZIA_CLIENT("Amnezia VPN Client", "Amnezia VPN client", "amnezia-client", false, "#c3a2ff"),
+        MIHOMO("Mihomo App", "Mihomo application", "mihomo", false, "#f7c670"),
+        GITHUB("GitHub", "GitHub repository or service", "github", false, "#e0e7f8"),
+        PORT("Port", "Network port for a service", "port", false, "#7edbef"),
+        UNKNOWN("UNKNOWN", "No link protocol selected", "unknown", true, "#aabfd6"),
+        HTTP("http", "HTTP connection", "http", true, "#65bbff"),
+        HTTPS("https", "HTTP connection encrypted with TLS", "https", true, "#66dfbf"),
+        SSH("ssh", "SSH connection", "ssh", true, "#f7c670"),
+        WIREGUARD("wireguard", "WireGuard tunnel", "wireguard", true, "#ff8e92"),
+        AMNEZIA("amnezia-vpn", "Amnezia VPN tunnel", "amnezia-vpn", true, "#c3a2ff"),
+        HISTERIA("histeria-vpn", "Hysteria VPN tunnel", "histeria-vpn", true, "#66dfbf");
 
         final String name, tooltip, icon, color;
         final boolean link;
@@ -57,7 +57,7 @@ final class Topology {
     }
 
     enum SensitiveProperty {
-        IP_ADDRESS("IP-адрес"), LOGIN("Логин"), PASSWORD("Пароль");
+        IP_ADDRESS("IP address"), LOGIN("Username"), PASSWORD("Password");
 
         final String label;
 

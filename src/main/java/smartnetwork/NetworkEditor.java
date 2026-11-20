@@ -5,6 +5,7 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.Locale;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
@@ -20,11 +21,15 @@ import javafx.stage.Stage;
 import smartnetwork.Topology.Type;
 
 public final class NetworkEditor extends Application {
+    static {
+        Locale.setDefault(Locale.ENGLISH);
+    }
+
     static final DataFormat PALETTE_TYPE = new DataFormat("application/x-smart-network-type");
     private final Topology topology = new Topology();
     private final Label status = new Label();
     private final TextField endpoint = new TextField();
-    private final Button send = new Button("Отправить агенту");
+    private final Button send = new Button("Send to Agent");
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
     private final ToggleButton showProperties = new ToggleButton();
     private final ToggleButton hideSensitive = new ToggleButton();
@@ -75,27 +80,27 @@ public final class NetworkEditor extends Application {
         endpoint.setText(System.getenv().getOrDefault("SMART_NETWORK_AGENT_URL", ""));
         send.getStyleClass().add("primary");
         send.setOnAction(event -> sendDesign());
-        Button resetView = new Button("Сбросить вид");
+        Button resetView = new Button("Reset View");
         resetView.setOnAction(event -> canvas.resetView());
-        configureTool(showProperties, icons, "properties", "Свойства", "Показать или скрыть свойства выбранного элемента");
-        configureTool(hideSensitive, icons, "hide-sensitive", "Скрыть секреты", "Показать или скрыть IP-адреса, логины и пароли");
+        configureTool(showProperties, icons, "properties", "Properties", "Show or hide properties for the selected item");
+        configureTool(hideSensitive, icons, "hide-sensitive", "Hide secrets", "Show or hide IP addresses, usernames, and passwords");
         Button sendPreview = new Button();
-        configureTool(sendPreview, icons, "send-ai", "Отправить в AI", "Отправить в AI (недоступно)");
+        configureTool(sendPreview, icons, "send-ai", "Send to AI", "Send to AI (unavailable)");
         sendPreview.setDisable(true);
-        Button newProject = projectButton(icons, "new-project", "New Project", "Создать новый проект", projects::newProject);
-        Button save = projectButton(icons, "save", "Save", "Сохранить изменения в текущий файл", projects::saveCurrent);
+        Button newProject = projectButton(icons, "new-project", "New Project", "Create a new project", projects::newProject);
+        Button save = projectButton(icons, "save", "Save", "Save changes to the current file", projects::saveCurrent);
         save.disableProperty().bind(projects.noCurrentFile());
-        Button saveAs = projectButton(icons, "save-as", "Save As", "Сохранить проект в файл", projects::saveAs);
-        Button loadFrom = projectButton(icons, "load-from", "Load From", "Загрузить проект из файла", projects::loadFrom);
+        Button saveAs = projectButton(icons, "save-as", "Save As", "Save the project to a file", projects::saveAs);
+        Button loadFrom = projectButton(icons, "load-from", "Load From", "Load a project from a file", projects::loadFrom);
         ToggleButton snap = new ToggleButton();
-        configureTool(snap, icons, "snap-centers", "Прилипание", "Выравнивать центры кругов при перетаскивании");
+        configureTool(snap, icons, "snap-centers", "Snap", "Snap circle centers into alignment while dragging");
         snap.setSelected(true);
         snap.selectedProperty().addListener((obs, previous, enabled) -> canvas.setSnapEnabled(enabled));
         ToolBar tools = new ToolBar(toolDivider(), newProject, toolWithDisabledHint(save), saveAs, loadFrom, toolDivider(),
             showProperties, hideSensitive, snap, toolWithDisabledHint(sendPreview), toolDivider());
         tools.getStyleClass().add("editor-tools");
         tools.setMinWidth(Region.USE_PREF_SIZE);
-        HBox bar = new HBox(10, title, tools, spacer, resetView, new Label("Адрес агента"), endpoint, send);
+        HBox bar = new HBox(10, title, tools, spacer, resetView, new Label("Agent URL"), endpoint, send);
         bar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         bar.getStyleClass().add("toolbar");
         return bar;
@@ -156,7 +161,7 @@ public final class NetworkEditor extends Application {
     }
 
     private VBox palette(Icons icons) {
-        Label title = new Label("Палитра");
+        Label title = new Label("Palette");
         title.getStyleClass().add("panel-title");
         VBox contents = new VBox(15, category(icons));
         contents.setPadding(new Insets(0, 4, 8, 0));
@@ -197,14 +202,14 @@ public final class NetworkEditor extends Application {
             });
             tiles.getChildren().add(tile);
         }
-        Label heading = new Label("Элементы");
+        Label heading = new Label("Items");
         heading.getStyleClass().add("category");
         return new VBox(8, heading, tiles);
     }
 
     private void sendDesign() {
         if (topology.roots.isEmpty()) {
-            status.setText("Добавьте хотя бы один элемент перед отправкой.");
+            status.setText("Add at least one item before sending the project.");
             return;
         }
         HttpRequest request;
@@ -216,20 +221,20 @@ public final class NetworkEditor extends Application {
                 .POST(HttpRequest.BodyPublishers.ofString(topology.toJson()))
                 .build();
         } catch (IllegalArgumentException failure) {
-            status.setText("Укажите действительный HTTP- или HTTPS-адрес агента.");
+            status.setText("Enter a valid HTTP or HTTPS agent URL.");
             return;
         }
         send.setDisable(true);
-        status.setText("Отправка проекта…");
+        status.setText("Sending project…");
         http.sendAsync(request, HttpResponse.BodyHandlers.discarding()).whenComplete((response, error) ->
             Platform.runLater(() -> {
                 send.setDisable(false);
                 if (error != null) {
-                    status.setText("Ошибка отправки. Проверьте доступность адреса агента.");
+                    status.setText("Could not send the project. Check that the agent URL is reachable.");
                 } else if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                    status.setText("Агент принял проект (HTTP " + response.statusCode() + ").");
+                    status.setText("Agent accepted the project (HTTP " + response.statusCode() + ").");
                 } else {
-                    status.setText("Агент вернул HTTP " + response.statusCode() + ".");
+                    status.setText("Agent returned HTTP " + response.statusCode() + ".");
                 }
             }));
     }

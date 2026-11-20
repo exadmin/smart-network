@@ -352,7 +352,7 @@ final class NetworkCanvas extends Pane {
         }
         TextField field = new TextField(item.name.get());
         field.setPromptText(item.type.name);
-        field.setAccessibleText("Имя на схеме");
+        field.setAccessibleText("Name on diagram");
         field.setManaged(false);
         field.setOnAction(event -> {
             finishNameEdit(item, field);
@@ -411,9 +411,9 @@ final class NetworkCanvas extends Pane {
         if (item == null) return;
         select(item);
         redraw();
-        MenuItem edit = new MenuItem("Свойства…");
+        MenuItem edit = new MenuItem("Properties…");
         edit.setOnAction(event -> properties.accept(item));
-        MenuItem delete = new MenuItem("Удалить");
+        MenuItem delete = new MenuItem("Delete");
         delete.setOnAction(event -> deleteSelection());
         menu.getItems().setAll(edit, delete);
         menu.show(this, x, y);
@@ -436,7 +436,7 @@ final class NetworkCanvas extends Pane {
     }
 
     void showHint() {
-        status.accept("Перетащите стрелку из центра круга для связи · ПКМ — свойства или панорамирование · Колесо — масштаб");
+        status.accept("Drag the arrow from a circle's center to create a link · Right-click for properties · Right-drag to pan · Scroll to zoom");
     }
 
     void resetView() {

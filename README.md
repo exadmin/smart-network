@@ -1,10 +1,14 @@
 # Smart Network
 
-Редактор сетевых схем на JavaFX для Windows.
+A JavaFX editor for drawing network diagrams on Windows.
 
-## Сборка и запуск
+![Smart Network editor showing a home network, a cloud VPS, and their connections](docs/smart-network.png)
 
-В PowerShell из корня проекта выполните:
+## Build and run
+
+On Windows, double-click `run-win.bat`. It builds the application with Maven if the JAR is missing.
+
+To build and run manually, open PowerShell in the project root:
 
 ```powershell
 $env:JAVA_HOME = 'C:\Development\Java\jdk-24.0.2'
@@ -13,24 +17,26 @@ mvn package
 & "$env:JAVA_HOME\bin\java.exe" --enable-native-access=javafx.graphics --module-path "$javafx\lib" --add-modules javafx.controls -jar target/smart-network-1.0.0.jar
 ```
 
-Пути для сборки заданы в `pom.xml`. Их можно заменить параметрами Maven `-Djdk.home=...` и `-Djavafx.home=...`.
+The build paths are defined in `pom.xml`. Override them with the Maven options `-Djdk.home=...` and `-Djavafx.home=...`.
 
-## Редактирование схемы
+## Edit a diagram
 
-- Перетащите устройство из палитры в свободное место или внутрь другого устройства. Вложенные устройства перемещаются вместе с родителем. При росте окружности соседние элементы сдвигаются.
-- Для создания связи наведите курсор на круг и перетащите стрелку из его центра на другой круг. Новая связь получает тип `UNKNOWN`. Чтобы выбрать протокол, откройте свойства связи через ПКМ. Esc отменяет перетаскивание.
-- ЛКМ выделяет и перемещает элементы. Щелчок ПКМ открывает свойства и удаление. Перетаскивание ПКМ перемещает канву, колесо меняет масштаб.
-- F2 или двойной щелчок ЛКМ открывают редактирование имени устройства или связи. Enter и потеря фокуса сохраняют имя.
-- Чтобы переподключить выбранную связь, перетащите ручку на её конце на другое устройство.
-- При перетаскивании круга направляющая появляется, если до совпадения центров по одной из осей остаётся не более пяти экранных пикселей. Отпустите ЛКМ для точного выравнивания. Кнопка **Прилипание** включает и выключает этот режим.
-- Свойства выбранного элемента находятся под палитрой. Кнопка **Свойства** переключает видимость панели. Пока нажата кнопка **Скрыть секреты**, IP-адрес, логин и пароль показываются как `********`. Отожмите кнопку, чтобы отредактировать эти поля. Эти значения не включаются в JSON для агента.
+- Drag an item from the palette onto an empty part of the canvas or into another circle. Nested items move with their parent. When a circle grows, neighboring circles move outward.
+- To create a link, hover over a circle and drag the arrow from its center to another circle. New links use the `UNKNOWN` type. Choose a protocol in the link's properties. Press Esc to cancel the drag.
+- Left-click to select an item and left-drag to move it. Right-click an item to open its context menu for properties or deletion. Right-drag to pan the canvas and scroll to zoom.
+- Press F2 or double-click an item to rename it. Press Enter or click away to apply the new name.
+- To reconnect a selected link, drag one of its endpoint handles onto another circle.
+- Alignment guides appear when the center of the circle you are dragging is within five screen pixels of another center on either axis. Release the mouse button to snap to that coordinate. The **Snap** toolbar button toggles this mode.
+- The selected item's properties appear below the palette. Use the **Properties** toolbar button to show or hide this panel. The **Hide secrets** button masks IP addresses, usernames, and passwords as `********`. Turn it off to edit those fields. The editor omits these values from the JSON it sends to the agent.
 
-## Файлы проекта
+## Project files
 
-Первый блок тулбара содержит **New Project**, **Save**, **Save As** и **Load From**. После загрузки проекта или сохранения через **Save As** кнопка **Save** записывает изменения в текущий файл. Перед созданием или загрузкой другого проекта редактор предлагает сохранить изменения. Файлы `.json-sn` содержат форматированный JSON с координатами, вложенностью, свойствами и связями. Введённые IP-адреса, логины и пароли записываются в файл открытым текстом. Переключатель маскирования влияет на отображение полей в редакторе.
+The first toolbar group contains **New Project**, **Save**, **Save As**, and **Load From**. After you load a project or save it using **Save As**, **Save** writes changes to the current file. The editor prompts you to save unsaved changes before creating or loading another project.
 
-## Подключение AI-агента
+Project files use the `.json-sn` extension and contain formatted JSON with coordinates, nesting, properties, and links. The editor writes IP addresses, usernames, and passwords to the project file in plain text. The masking toggle affects only how those values appear in the editor.
 
-В поле **Адрес агента** укажите полный URL обработчика задания или задайте его через `SMART_NETWORK_AGENT_URL`. По кнопке **Отправить агенту** редактор отправляет HTTP POST с `Content-Type: application/json; charset=UTF-8`. Код 2xx означает, что обработчик принял проект. Развёртывание сети выполняет подключённый агент.
+## Connect an AI agent
 
-Тело содержит `schemaVersion` (1), `nodes` и `links`. У записи есть `id`, `type`, `typeName`, `customName`, `tooltip`, `descriptionForAi` и `iconPath`. Узел добавляет `parentId` (UUID родителя или null), `x` и `y` в координатах схемы. Связь добавляет `sourceId` и `targetId` с UUID её концов. Путь к SVG указывает на ресурс JAR.
+Enter the full URL of the agent's job endpoint in the address field or set `SMART_NETWORK_AGENT_URL`. Click the blue send button to submit the diagram as an HTTP POST with `Content-Type: application/json; charset=UTF-8`. A 2xx response confirms that the agent accepted the project. The connected agent handles network deployment.
+
+The request body contains `schemaVersion` (1), `nodes`, and `links`. Each node or link has `id`, `type`, `typeName`, `customName`, `tooltip`, `descriptionForAi`, and `iconPath`. A node also has `parentId` (its parent's UUID or `null`), `x`, and `y` in diagram coordinates. A link also has `sourceId` and `targetId` with its endpoints' UUIDs. The `iconPath` refers to an SVG resource inside the JAR.

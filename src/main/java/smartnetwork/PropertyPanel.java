@@ -34,11 +34,11 @@ final class PropertyPanel extends VBox {
         if (name != null) name.textProperty().unbindBidirectional(item.name);
         name = null;
         item = selected;
-        Label title = new Label("Свойства");
+        Label title = new Label("Properties");
         title.getStyleClass().add("panel-title");
         getChildren().setAll(title);
         if (selected == null) {
-            Label empty = new Label("Выберите элемент на канве.");
+            Label empty = new Label("Select an item on the canvas.");
             empty.setWrapText(true);
             getChildren().add(empty);
             return;
@@ -48,7 +48,7 @@ final class PropertyPanel extends VBox {
         name.setPromptText(selected.type.name);
         name.textProperty().bindBidirectional(selected.name);
         name.textProperty().addListener((obs, old, text) -> redraw.run());
-        addField("Имя на схеме", name);
+        addField("Name on diagram", name);
 
         TextField tooltip = readOnly(selected.type.tooltip);
         TextField icon = readOnly(selected.type.icon);
@@ -62,18 +62,18 @@ final class PropertyPanel extends VBox {
                 icon.setText(type.icon);
                 redraw.run();
             });
-            addField("Тип связи", protocol);
+            addField("Link type", protocol);
         } else {
-            addField("Тип элемента", readOnly(selected.type.name));
+            addField("Item type", readOnly(selected.type.name));
         }
 
         TextArea description = new TextArea(selected.description);
         description.setWrapText(true);
         description.setPrefRowCount(3);
         description.textProperty().addListener((obs, old, text) -> selected.description = text);
-        addField("Описание для AI", description);
-        addField("Подсказка", tooltip);
-        addField("Путь к иконке", icon);
+        addField("Description for AI", description);
+        addField("Tooltip", tooltip);
+        addField("Icon path", icon);
         if (selected instanceof Device device) {
             for (SensitiveProperty property : SensitiveProperty.values()) {
                 TextField field;

@@ -35,7 +35,7 @@ final class ProjectActions {
     void newProject() {
         if (!confirmReplacement()) return;
         replaceProject(new Topology(), null);
-        status.accept("Создан новый проект.");
+        status.accept("New project created.");
     }
 
     BooleanBinding noCurrentFile() {
@@ -52,7 +52,7 @@ final class ProjectActions {
     boolean saveAs() {
         canvas.commitNameEdit();
         Path current = currentFile.get();
-        FileChooser chooser = fileChooser("Сохранить проект как");
+        FileChooser chooser = fileChooser("Save Project As");
         chooser.setInitialFileName(current == null ? "project" + ProjectFiles.EXTENSION
             : current.getFileName().toString());
         File file = chooser.showSaveDialog(stage);
@@ -67,16 +67,16 @@ final class ProjectActions {
     }
 
     void loadFrom() {
-        File file = fileChooser("Загрузить проект").showOpenDialog(stage);
+        File file = fileChooser("Load Project").showOpenDialog(stage);
         if (file == null || !confirmReplacement()) return;
         try {
             Path path = file.toPath();
             replaceProject(ProjectFiles.load(path), path);
-            status.accept("Проект загружен · " + file.getName());
+            status.accept("Project loaded · " + file.getName());
         } catch (JsonParseException failure) {
-            error("Не удалось загрузить проект", "Файл содержит некорректный JSON.");
+            error("Could not load the project", "The file contains invalid JSON.");
         } catch (IOException failure) {
-            error("Не удалось загрузить проект", failure.getMessage());
+            error("Could not load the project", failure.getMessage());
         }
     }
 
@@ -84,10 +84,10 @@ final class ProjectActions {
         canvas.commitNameEdit();
         String current = ProjectFiles.snapshot(topology);
         if (current.equals(savedSnapshot)) return true;
-        ButtonType save = new ButtonType("Сохранить", ButtonBar.ButtonData.YES);
-        ButtonType discard = new ButtonType("Не сохранять", ButtonBar.ButtonData.NO);
-        Alert dialog = dialog(Alert.AlertType.CONFIRMATION, "Несохранённые изменения",
-            "Сохранить изменения в текущем проекте?", save, discard, ButtonType.CANCEL);
+        ButtonType save = new ButtonType("Save", ButtonBar.ButtonData.YES);
+        ButtonType discard = new ButtonType("Don't Save", ButtonBar.ButtonData.NO);
+        Alert dialog = dialog(Alert.AlertType.CONFIRMATION, "Unsaved Changes",
+            "Save changes to the current project?", save, discard, ButtonType.CANCEL);
         ButtonType answer = dialog.showAndWait().orElse(ButtonType.CANCEL);
         if (answer == discard) return true;
         Path path = currentFile.get();
@@ -95,8 +95,8 @@ final class ProjectActions {
     }
 
     private boolean confirmOverwrite(Path file) {
-        return dialog(Alert.AlertType.CONFIRMATION, "Заменить файл?",
-            "Файл «" + file.getFileName() + "» уже существует.", ButtonType.OK, ButtonType.CANCEL)
+        return dialog(Alert.AlertType.CONFIRMATION, "Replace File?",
+            "The file “" + file.getFileName() + "” already exists.", ButtonType.OK, ButtonType.CANCEL)
             .showAndWait().orElse(ButtonType.CANCEL) == ButtonType.OK;
     }
 
@@ -105,10 +105,10 @@ final class ProjectActions {
             ProjectFiles.save(path, snapshot);
             currentFile.set(path.toAbsolutePath());
             savedSnapshot = snapshot;
-            status.accept("Проект сохранён · " + path.getFileName());
+            status.accept("Project saved · " + path.getFileName());
             return true;
         } catch (IOException failure) {
-            error("Не удалось сохранить проект", failure.getMessage());
+            error("Could not save the project", failure.getMessage());
             return false;
         }
     }

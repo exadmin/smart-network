@@ -74,7 +74,7 @@ final class ProjectFiles {
             project = JSON.fromJson(reader, Project.class);
         }
         if (project == null || project.schemaVersion != VERSION || project.nodes == null || project.links == null) {
-            throw new IOException("Неизвестный формат или версия проекта.");
+            throw new IOException("Unsupported project format or version.");
         }
         Topology restored = new Topology();
         Map<String, Device> devices = new HashMap<>();
@@ -82,12 +82,12 @@ final class ProjectFiles {
         restoreNodes(project.nodes, restored.roots, null, devices, ids);
         for (LinkData data : project.links) {
             if (data == null || data.type == null || !data.type.link || !validId(data.id, ids)) {
-                throw new IOException("Некорректная запись связи.");
+                throw new IOException("Invalid link record.");
             }
             Device source = devices.get(data.sourceId);
             Device target = devices.get(data.targetId);
             if (source == null || target == null || source == target) {
-                throw new IOException("Связь ссылается на недопустимые узлы.");
+                throw new IOException("A link refers to invalid nodes.");
             }
             var link = new Link(data.id, data.type, source, target);
             link.name.set(text(data.customName));
@@ -103,7 +103,7 @@ final class ProjectFiles {
             if (data == null || data.type == null || data.type.link || data.children == null
                 || !Double.isFinite(data.x) || !Double.isFinite(data.y)
                 || !Double.isFinite(data.radius) || data.radius <= 0 || !validId(data.id, ids)) {
-                throw new IOException("Некорректная запись узла.");
+                throw new IOException("Invalid node record.");
             }
             Device device = new Device(data.id, data.type, new Point2D(data.x, data.y));
             device.parent = parent;
@@ -112,7 +112,7 @@ final class ProjectFiles {
             device.description = text(data.descriptionForAi);
             if (data.sensitiveValues != null) {
                 for (var entry : data.sensitiveValues.entrySet()) {
-                    if (entry.getKey() == null) throw new IOException("Неизвестное свойство узла.");
+                    if (entry.getKey() == null) throw new IOException("Unknown node property.");
                     device.sensitiveValues.put(entry.getKey(), text(entry.getValue()));
                 }
             }
