@@ -47,4 +47,35 @@
 }
 .diagram-badge .label { -fx-font-size: 11px; }
 .selected-badge { -fx-border-color: #b7dbff; }
-.dialog-pane { -fx-padding: 12; }
+
+.editor-tools { -fx-padding: 0; -fx-background-color: transparent; }
+.editor-tools .tool-divider { -fx-max-height: 23; -fx-padding: 0; }
+.editor-tools .tool-divider .line { -fx-border-color: #38516a; -fx-border-width: 0 0 0 1; }
+.editor-tools .tool-group-divider { -fx-max-height: 32; -fx-padding: 0 3; }
+.editor-tools .tool-group-divider .line { -fx-border-color: #63829f; }
+.editor-tools .editor-tool {
+    -fx-min-width: 38; -fx-pref-width: 38; -fx-max-width: 38;
+    -fx-min-height: 38; -fx-pref-height: 38; -fx-max-height: 38;
+    -fx-padding: 0;
+    -fx-cursor: hand;
+    -fx-background-color: #1c3045;
+    -fx-background-radius: 7;
+    -fx-border-color: #375069;
+    -fx-border-radius: 7;
+}
+.editor-tools .editor-tool:focused { -fx-border-color: #91b6da; }
+.editor-tools .editor-tool:selected {
+    -fx-background-color: #284969;
+    -fx-border-color: #83bdff;
+    -fx-effect: dropshadow(gaussian, rgba(104, 174, 255, 0.6), 10, 0.19, 0, 0);
+}
+.editor-tools .editor-tool:selected .editor-tool-icon SVGPath { -fx-stroke: #d7ebff; }
+.editor-tools .editor-tool:disabled {
+    -fx-opacity: 1;
+    -fx-background-color: #222a34;
+    -fx-border-color: #414953;
+    -fx-effect: null;
+}
+.editor-tools .editor-tool:disabled .editor-tool-icon SVGPath { -fx-stroke: #929292; }
+.properties-scroll { -fx-background-color: #132236; }
+.property-panel { -fx-padding: 12 14 16; }

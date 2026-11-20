@@ -46,6 +46,7 @@ final class NetworkCanvas extends Pane {
     private final Icons icons;
     private final Consumer<String> status;
     private final Consumer<Item> properties;
+    private final Consumer<Item> selectionChanged;
     private final Canvas grid = new Canvas();
     private final Group world = new Group();
     private final SVGPath linkArrow = new SVGPath();
@@ -71,11 +72,13 @@ final class NetworkCanvas extends Pane {
     private TextField nameEditor;
     private Point2D nameAnchor;
 
-    NetworkCanvas(Topology topology, Icons icons, Consumer<String> status, Consumer<Item> properties) {
+    NetworkCanvas(Topology topology, Icons icons, Consumer<String> status, Consumer<Item> properties,
+                  Consumer<Item> selectionChanged) {
         this.topology = topology;
         this.icons = icons;
         this.status = status;
         this.properties = properties;
+        this.selectionChanged = selectionChanged;
         getStyleClass().add("network-canvas");
         setMinSize(200, 100);
         setFocusTraversable(true);
@@ -122,7 +125,7 @@ final class NetworkCanvas extends Pane {
             dropParent = null;
             var device = new Device(type, position);
             topology.place(device, target, position);
-            selection = device;
+            select(device);
             redraw();
             showHint();
             event.setDropCompleted(true);
@@ -146,12 +149,12 @@ final class NetworkCanvas extends Pane {
             if (draggedEnd != null) return;
             if (hitsArrow(position)) {
                 linkStart = hoveredCircle;
-                selection = linkStart;
+                select(linkStart);
                 setHoveredCircle(null);
                 redraw();
                 return;
             }
-            selection = itemAt(position);
+            select(itemAt(position));
             if (selection instanceof Device device) dragging = device;
             setHoveredCircle(null);
             redraw();
@@ -162,6 +165,7 @@ final class NetworkCanvas extends Pane {
             moved |= delta.magnitude() >= 4;
             if (!moved) return;
             if (pressedButton == MouseButton.SECONDARY) {
+                setCursor(Cursor.MOVE);
                 pan = panAtPress.add(delta);
                 updateView();
             } else if (draggedEnd != null) {
@@ -197,7 +201,7 @@ final class NetworkCanvas extends Pane {
                     if (target != null) {
                         Link link = new Link(Type.UNKNOWN, linkStart, target);
                         topology.links.add(link);
-                        selection = link;
+                        select(link);
                     }
                 } else if (dragging != null && moved) {
                     Point2D center = dragging.center().add(dragDelta);
@@ -220,7 +224,9 @@ final class NetworkCanvas extends Pane {
             if (event.getTarget() == this) updateHover(toWorld(event.getX(), event.getY()));
             else setHoveredCircle(null);
         });
-        setOnMouseExited(event -> setHoveredCircle(null));
+        setOnMouseExited(event -> {
+            if (pressedButton != MouseButton.SECONDARY || !moved) setHoveredCircle(null);
+        });
         setOnMouseClicked(event -> {
             if (event.getTarget() == this && event.getButton() == MouseButton.PRIMARY
                 && event.getClickCount() == 2 && !moved
@@ -285,7 +291,7 @@ final class NetworkCanvas extends Pane {
         } else {
             nameAnchor = selectedEdge().at(0.5);
         }
-        TextField field = new TextField(item.name);
+        TextField field = new TextField(item.name.get());
         field.setPromptText(item.type.name);
         field.setAccessibleText("Имя на схеме");
         field.setManaged(false);
@@ -306,9 +312,20 @@ final class NetworkCanvas extends Pane {
         return true;
     }
 
+    void commitNameEdit() {
+        if (nameEditor != null) finishNameEdit(selection, nameEditor);
+    }
+
+    void resetProjectView() {
+        select(null);
+        setHoveredCircle(null);
+        resetView();
+        redraw();
+    }
+
     private void finishNameEdit(Item item, TextField field) {
         if (nameEditor != field) return;
-        item.name = field.getText().strip();
+        item.name.set(field.getText().strip());
         nameEditor = null;
         getChildren().remove(field);
         redraw();
@@ -325,9 +342,15 @@ final class NetworkCanvas extends Pane {
             width, height);
     }
 
+    private void select(Item item) {
+        if (selection == item) return;
+        selection = item;
+        selectionChanged.accept(item);
+    }
+
     private void showMenu(Item item, double x, double y) {
         if (item == null) return;
-        selection = item;
+        select(item);
         redraw();
         MenuItem edit = new MenuItem("Свойства…");
         edit.setOnAction(event -> properties.accept(item));
@@ -340,7 +363,7 @@ final class NetworkCanvas extends Pane {
     void deleteSelection() {
         if (selection == null || pressed != null) return;
         topology.remove(selection);
-        selection = null;
+        select(null);
         setHoveredCircle(null);
         redraw();
     }

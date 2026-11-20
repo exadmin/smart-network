@@ -1,8 +1,11 @@
 package smartnetwork;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.UUID;
+import javafx.beans.property.SimpleStringProperty;
+import javafx.beans.property.StringProperty;
 import javafx.geometry.Point2D;
 
 final class Topology {
@@ -36,28 +39,44 @@ final class Topology {
     }
 
     abstract static class Item {
-        final String id = UUID.randomUUID().toString();
+        final String id;
         Type type;
-        String name = "";
+        final StringProperty name = new SimpleStringProperty("");
         String description = "";
 
-        Item(Type type) {
+        Item(String id, Type type) {
+            this.id = id;
             this.type = type;
         }
 
         String title() {
-            return name.isBlank() ? type.name : name;
+            return name.get().isBlank() ? type.name : name.get();
+        }
+    }
+
+    enum SensitiveProperty {
+        IP_ADDRESS("IP-адрес"), LOGIN("Логин"), PASSWORD("Пароль");
+
+        final String label;
+
+        SensitiveProperty(String label) {
+            this.label = label;
         }
     }
 
     static final class Device extends Item {
         final List<Device> children = new ArrayList<>();
+        final EnumMap<SensitiveProperty, String> sensitiveValues = new EnumMap<>(SensitiveProperty.class);
         Device parent;
         Point2D position;
         double radius = 49;
 
         Device(Type type, Point2D position) {
-            super(type);
+            this(UUID.randomUUID().toString(), type, position);
+        }
+
+        Device(String id, Type type, Point2D position) {
+            super(id, type);
             this.position = position;
         }
 
@@ -77,7 +96,11 @@ final class Topology {
         Device source, target;
 
         Link(Type type, Device source, Device target) {
-            super(type);
+            this(UUID.randomUUID().toString(), type, source, target);
+        }
+
+        Link(String id, Type type, Device source, Device target) {
+            super(id, type);
             this.source = source;
             this.target = target;
         }
@@ -204,7 +227,7 @@ final class Topology {
 
     private String fields(Item item) {
         return "\"id\":" + quote(item.id) + ",\"type\":" + quote(item.type.name())
-            + ",\"typeName\":" + quote(item.type.name) + ",\"customName\":" + quote(item.name)
+            + ",\"typeName\":" + quote(item.type.name) + ",\"customName\":" + quote(item.name.get())
             + ",\"tooltip\":" + quote(item.type.tooltip) + ",\"descriptionForAi\":" + quote(item.description)
             + ",\"iconPath\":" + quote(item.type.icon);
     }

@@ -28,7 +28,7 @@ if not exist "%APP_JAR%" (
     if errorlevel 1 goto failed
 )
 
-"%JAVA_HOME%\bin\java.exe" --enable-native-access=javafx.graphics --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls -jar "%APP_JAR%"
+"%JAVA_HOME%\bin\javaw.exe" --enable-native-access=javafx.graphics --module-path "%JAVAFX_HOME%\lib" --add-modules javafx.controls -jar "%APP_JAR%"
 if errorlevel 1 goto failed
 
 popd

@@ -5,10 +5,10 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
-import java.util.Arrays;
 import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Insets;
+import javafx.geometry.Orientation;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.input.KeyCode;
@@ -17,9 +17,6 @@ import javafx.scene.input.ClipboardContent;
 import javafx.scene.input.DataFormat;
 import javafx.scene.layout.*;
 import javafx.stage.Stage;
-import javafx.util.StringConverter;
-import smartnetwork.Topology.Item;
-import smartnetwork.Topology.Link;
 import smartnetwork.Topology.Type;
 
 public final class NetworkEditor extends Application {
@@ -29,18 +26,25 @@ public final class NetworkEditor extends Application {
     private final TextField endpoint = new TextField();
     private final Button send = new Button("Отправить агенту");
     private final HttpClient http = HttpClient.newBuilder().connectTimeout(Duration.ofSeconds(10)).build();
-    private Stage stage;
+    private final ToggleButton showProperties = new ToggleButton();
+    private final ToggleButton hideSensitive = new ToggleButton();
     private NetworkCanvas canvas;
+    private PropertyPanel properties;
 
     @Override
     public void start(Stage stage) {
-        this.stage = stage;
         Icons icons = new Icons();
-        canvas = new NetworkCanvas(topology, icons, status::setText, this::properties);
-        SplitPane split = new SplitPane(palette(icons), canvas);
+        showProperties.setSelected(true);
+        hideSensitive.setSelected(true);
+        properties = new PropertyPanel(hideSensitive.selectedProperty(), () -> canvas.redraw());
+        canvas = new NetworkCanvas(topology, icons, status::setText, item -> {
+            showProperties.setSelected(true);
+            properties.focusName();
+        }, properties::showItem);
+        SplitPane split = new SplitPane(sidebar(icons), canvas);
         split.setDividerPositions(0.25);
         BorderPane window = new BorderPane(split);
-        window.setTop(toolbar());
+        window.setTop(toolbar(icons, new ProjectActions(stage, topology, canvas, status::setText)));
         status.getStyleClass().add("status");
         window.setBottom(status);
         canvas.showHint();
@@ -51,31 +55,91 @@ public final class NetworkEditor extends Application {
             if (event.isConsumed() || event.getTarget() instanceof TextInputControl) return;
             if (event.getCode() == KeyCode.F2 && canvas.editSelectionName()) event.consume();
             if (event.getCode() == KeyCode.ESCAPE) canvas.cancelLink();
-            if (event.getCode() == KeyCode.DELETE) canvas.deleteSelection();
+            if (event.getCode() == KeyCode.DELETE && event.getTarget() == canvas) canvas.deleteSelection();
         });
         stage.setTitle("Smart Network");
-        stage.setMinWidth(720);
+        stage.setMinWidth(900);
         stage.setMinHeight(470);
         stage.setScene(scene);
         stage.show();
     }
 
-    private HBox toolbar() {
+    private HBox toolbar(Icons icons, ProjectActions projects) {
         Label title = new Label("Smart Network");
         title.getStyleClass().add("app-title");
         Region spacer = new Region();
         HBox.setHgrow(spacer, Priority.ALWAYS);
         endpoint.setPromptText("https://agent.example/jobs");
-        endpoint.setPrefColumnCount(24);
+        endpoint.setPrefColumnCount(16);
+        endpoint.setMinWidth(72);
         endpoint.setText(System.getenv().getOrDefault("SMART_NETWORK_AGENT_URL", ""));
         send.getStyleClass().add("primary");
         send.setOnAction(event -> sendDesign());
         Button resetView = new Button("Сбросить вид");
         resetView.setOnAction(event -> canvas.resetView());
-        HBox bar = new HBox(10, title, spacer, resetView, new Label("Адрес агента"), endpoint, send);
+        configureTool(showProperties, icons, "properties", "Свойства", "Показать или скрыть свойства выбранного элемента");
+        configureTool(hideSensitive, icons, "hide-sensitive", "Скрыть секреты", "Показать или скрыть IP-адреса, логины и пароли");
+        Button sendPreview = new Button();
+        configureTool(sendPreview, icons, "send-ai", "Отправить в AI", "Отправить в AI (недоступно)");
+        sendPreview.setDisable(true);
+        sendPreview.setMouseTransparent(true);
+        StackPane unavailableTool = new StackPane(sendPreview);
+        unavailableTool.setPickOnBounds(true);
+        Tooltip.install(unavailableTool, sendPreview.getTooltip());
+        Button newProject = projectButton(icons, "new-project", "New Project", "Создать новый проект", projects::newProject);
+        Button saveAs = projectButton(icons, "save-as", "Save As", "Сохранить проект в файл", projects::saveAs);
+        Button loadFrom = projectButton(icons, "load-from", "Load From", "Загрузить проект из файла", projects::loadFrom);
+        Separator groupDivider = toolDivider();
+        groupDivider.getStyleClass().add("tool-group-divider");
+        ToolBar tools = new ToolBar(newProject, toolDivider(), saveAs, toolDivider(), loadFrom,
+            groupDivider, showProperties, toolDivider(), hideSensitive, toolDivider(), unavailableTool);
+        tools.getStyleClass().add("editor-tools");
+        tools.setMinWidth(Region.USE_PREF_SIZE);
+        HBox bar = new HBox(10, title, tools, spacer, resetView, new Label("Адрес агента"), endpoint, send);
         bar.setAlignment(javafx.geometry.Pos.CENTER_LEFT);
         bar.getStyleClass().add("toolbar");
         return bar;
+    }
+
+    private Button projectButton(Icons icons, String icon, String name, String hint, Runnable action) {
+        Button button = new Button();
+        configureTool(button, icons, icon, name, hint);
+        button.setOnAction(event -> action.run());
+        return button;
+    }
+
+    private Separator toolDivider() {
+        Separator separator = new Separator(Orientation.VERTICAL);
+        separator.getStyleClass().add("tool-divider");
+        return separator;
+    }
+
+    private void configureTool(ButtonBase button, Icons icons, String icon, String name, String hint) {
+        button.setGraphic(icons.toolbarIcon(icon));
+        button.setAccessibleText(name);
+        button.setTooltip(new Tooltip(hint));
+        button.getStyleClass().add("editor-tool");
+    }
+
+    private SplitPane sidebar(Icons icons) {
+        ScrollPane details = new ScrollPane(properties);
+        details.setFitToWidth(true);
+        details.setHbarPolicy(ScrollPane.ScrollBarPolicy.NEVER);
+        details.setMinHeight(92);
+        details.getStyleClass().add("properties-scroll");
+        SplitPane left = new SplitPane(palette(icons), details);
+        left.setOrientation(Orientation.VERTICAL);
+        left.setMinWidth(142);
+        left.setDividerPositions(0.55);
+        showProperties.selectedProperty().addListener((obs, wasVisible, visible) -> {
+            if (visible) {
+                left.getItems().add(details);
+                left.setDividerPositions(0.55);
+            } else {
+                left.getItems().remove(details);
+            }
+        });
+        return left;
     }
 
     private VBox palette(Icons icons) {
@@ -123,47 +187,6 @@ public final class NetworkEditor extends Application {
         Label heading = new Label("Элементы");
         heading.getStyleClass().add("category");
         return new VBox(8, heading, tiles);
-    }
-
-    private void properties(Item item) {
-        Dialog<ButtonType> dialog = new Dialog<>();
-        dialog.initOwner(stage);
-        dialog.setTitle("Свойства");
-        dialog.setHeaderText(item.type.name + " · " + item.type.tooltip);
-        dialog.getDialogPane().getStylesheets().add(getClass().getResource("/editor.css").toExternalForm());
-        ButtonType save = new ButtonType("Сохранить", ButtonBar.ButtonData.OK_DONE);
-        dialog.getDialogPane().getButtonTypes().addAll(save, ButtonType.CANCEL);
-        TextField name = new TextField(item.name);
-        name.setPromptText(item.type.name);
-        TextArea description = new TextArea(item.description);
-        description.setWrapText(true);
-        description.setPrefRowCount(5);
-        Label iconPath = new Label(item.type.icon);
-        ChoiceBox<Type> protocol = new ChoiceBox<>();
-        VBox fields = new VBox(8, new Label("Имя на схеме"), name);
-        if (item instanceof Link) {
-            protocol.getItems().setAll(Arrays.stream(Type.values()).filter(type -> type.link).toList());
-            protocol.setConverter(new StringConverter<>() {
-                @Override public String toString(Type type) { return type == null ? "" : type.name; }
-                @Override public Type fromString(String value) { return null; }
-            });
-            protocol.setValue(item.type);
-            protocol.valueProperty().addListener((obs, previous, type) -> {
-                name.setPromptText(type.name);
-                iconPath.setText(type.icon);
-            });
-            Label protocolLabel = new Label("Тип связи");
-            protocolLabel.setLabelFor(protocol);
-            fields.getChildren().addAll(protocolLabel, protocol);
-        }
-        fields.getChildren().addAll(new Label("Описание для AI"), description, iconPath);
-        dialog.getDialogPane().setContent(fields);
-        if (dialog.showAndWait().orElse(ButtonType.CANCEL) == save) {
-            if (item instanceof Link) item.type = protocol.getValue();
-            item.name = name.getText().strip();
-            item.description = description.getText();
-            canvas.redraw();
-        }
     }
 
     private void sendDesign() {
